@@ -124,7 +124,7 @@ BigBoard.prototype.onMessageData = function(interest, data) {
   hash.update(buf);	
 
   var hashDigest = hash.digest('hex');
-  if (this.chalkBoardDigest.indexOf(hashDigest) == -1) {
+  if (this.chalkBoardDigest.indexOf(hashDigest) == -1) { // check for already-received messages.
     this.chalkBoardDigest.push(hashDigest);
     this.postToQueue(new BigBoard.ChalkBoard(uid, seq, msg, time));
   }
@@ -136,8 +136,9 @@ BigBoard.prototype.onMessageData = function(interest, data) {
 
   BigBoard.getMessages() sends interest to 
   /messages/<uid> prefix and accepts exclude to 
-  enumerate each message; it also binds the current
-  BigBoard instance to the onData callback.
+  enumerate each message from the prefi; it also 
+  binds the current BigBoard instance to the onData 
+  callback.
 
 ****************************************************/
 BigBoard.prototype.getMessages = function(uid, exclude){
@@ -147,10 +148,9 @@ BigBoard.prototype.getMessages = function(uid, exclude){
   
   interest.setChildSelector(0);
   interest.setExclude(exclude);
-//console.log('Message Seq Interest with Exclude:');
-//console.log(interest.toUri());
-  interest.setInterestLifetimeMilliseconds(500);
+  interest.setInterestLifetimeMilliseconds(500); 
   face.expressInterest(interest, this.onMessageData.bind(this)); 
+  // bind "this" instance so that all initialized variables can be accessible outside of the function.
 }
 
 /****************************************************
@@ -169,7 +169,6 @@ BigBoard.prototype.beacon = function() {
       // Remove all expired runner from the roaster
       this.roaster.splice(i,1);
     } else {
-//console.log(this.roaster[i].uid+":"+this.roaster[i].exclude.toUri());
       this.getMessages(this.roaster[i].uid, this.roaster[i].exclude); 
     }
   }
@@ -188,14 +187,11 @@ BigBoard.prototype.onRunnerData = function(interest, data) {
 
   var uid = data.getName().getComponent(1);
   var exclude = interest.getExclude().appendComponent(uid);
-//console.log(data.getName().toUri());
-//console.log(interest.toUri());
   var timestamp = data.getName().size() >= 3 ? 
 	data.getName().getComponent(2).toString() : 
 	new Name.Component("1").toEscapedString();
   var cutoff = new Date().valueOf() - USER_TIMEOUT;
 
-//console.log(Number(timestamp));
   for (var i = this.roaster.length; i >= 0; i--) {
     if (Number(timestamp) >= cutoff) {
       if (i == 0) {  
@@ -207,7 +203,6 @@ BigBoard.prototype.onRunnerData = function(interest, data) {
       }
     }
   }
-//console.log(data.getName().toUri() +":" + timestamp);
   this.callRoll(exclude);  
 }
 
@@ -222,14 +217,13 @@ BigBoard.prototype.onRunnerData = function(interest, data) {
 BigBoard.prototype.callRoll = function(exclude){
 
   var interest = new Interest(new Name("/users")); 
-  interest.setChildSelector(1);
+  interest.setChildSelector(1);  // set child selector to get the largest component available.
   interest.setExclude(exclude);
-//console.log('User Interest with Exclude:');
-//console.log(interest.toUri());
-  interest.setInterestLifetimeMilliseconds(5000);  
-  interest.setMustBeFresh(true);
+  interest.setInterestLifetimeMilliseconds(5000);  // send interest again when expired.
+  interest.setMustBeFresh(true);  // set MustBeFresh so that it won't accept cached data that expired.
   face.expressInterest(interest, this.onRunnerData.bind(this), 
-	this.callRoll.bind(this));
+	this.callRoll.bind(this));  
+  // bind "this" instance so that all initialized variables can be accessible outside of the function.
 }
 
 function main(){

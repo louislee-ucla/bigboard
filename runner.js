@@ -183,7 +183,6 @@ var Runner = function Runner(keyChain, certificateName, face) {
 ****************************************************/
 Runner.ChatMessage = function (msg, time, seq)
 {
-  /*this.msgtype = msgtype;*/
   this.msg = msg;
   this.time = time;
   this.seq = seq;
@@ -193,11 +192,6 @@ Runner.ChatMessage.prototype.getSequenceNo = function()
 {
   return this.seq;
 };
-
-/*Runner.ChatMessage.prototype.getMessageType = function()
-{
-  return this.msgtype;
-};*/
 
 Runner.ChatMessage.prototype.getMessage = function()
 {
@@ -243,7 +237,6 @@ Runner.prototype.onMessageInterest = function(prefix, interest, transport)
       this.keyChain.sign(data, this.certificateName);
       var encodedData = data.wireEncode();
       try {
-        //console.log("Sent Message Content: " + content);
         transport.send(encodedData.buf());
         break;
       } catch (e) {
@@ -278,8 +271,9 @@ Runner.prototype.sendTalk = function(msg) {
   face.registerPrefix
     (prefix,
      this.onMessageInterest.bind(this),
-     this.onRegisterFailed.bind(this));
-  //console.log("Register prefix", prefix.toUri());
+     this.onRegisterFailed.bind(this));  
+  // bind "this" instance so that this.chatMessage can be accessible outside of the function.
+//console.log("Register prefix", prefix.toUri());
 }
 
 /****************************************************
@@ -299,7 +293,6 @@ Runner.prototype.talk = function() {
 
     if (line.trim().length)
       runner.sendTalk(line.trim());
-    //console.log('Message registered');
     rl.prompt();
   }).on('close', function() {
     console.log('Talk ended');
@@ -321,19 +314,18 @@ Runner.prototype.onUserInterest = function(prefix, interest, transport)
   this.checkInTime = new Date().valueOf();
   var data = new Data();
   var meta = new MetaInfo();
-  meta.setFreshnessPeriod(USER_REFRESH);
+  // Set freshness period so the router will forward interests to this runner
+  // (as opposed to always render cached data) after the data expires.
+  meta.setFreshnessPeriod(USER_REFRESH);  
   data.setName(prefix.append(this.uid).append(this.checkInTime.toString()));
-//console.log(interest.toUri());
-//console.log("my time is "+this.checkInTime.toString());
   var content = data.getName().toUri();
   data.setContent(content);
-  data.setMetaInfo(meta);
+  data.setMetaInfo(meta);  // freshness period has to set inside meta info
 
   this.keyChain.sign(data, this.certificateName);
   var encodedData = data.wireEncode();
 
   try {
-    //console.log("Sent User: " + content);
     transport.send(encodedData.buf());
   } catch (e) {
     console.log("Error: " + e.toString());
@@ -366,15 +358,14 @@ Runner.prototype.checkIn = function() {
   var prefix = new Name("/users");
   var face = this.face;
   
-  //console.log("Register prefix", prefix.toUri());
   face.registerPrefix(prefix, this.onUserInterest.bind(this), 
 	this.onRegisterFailed.bind(this));
-
+  // bind "this" instance so that all initialized variables can be accessible outside of the function.
 }
 
 function main()
 {
-  var face = new Face(new UnixTransport());
+  var face = new Face(new UnixTransport()); // must be on the same hub as the publisher's
 
   var identityStorage = new MemoryIdentityStorage();
   var privateKeyStorage = new MemoryPrivateKeyStorage();
